@@ -1,6 +1,7 @@
 package com.transport.user_service.config;
 
 import com.transport.user_service.service.CustomUserDetailsService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,16 +11,12 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration; // <--- Import nécessaire
-import org.springframework.web.cors.CorsConfigurationSource; // <--- Import nécessaire
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource; // <--- Import nécessaire
-
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -52,42 +49,27 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. On désactive la protection CSRF (inutile pour les API REST stateless)
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
 
-                // 2. CONFIGURATION CORS (C'est ça qui va réparer ton erreur !)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // ❌ SUPPRESSION DU CORS ICI (C'est géré par la Gateway)
 
-                // 3. Gestion des accès
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll() // Autoriser Login et Register
-                        .anyRequest().authenticated() // Bloquer le reste
+                        .requestMatchers("/api/auth/**").permitAll() // IMPORTANT pour l'inscription
+                        .requestMatchers("/actuator/**").permitAll()
+                        .anyRequest().authenticated()
                 )
-
-                // 4. Gestion de session (Stateless = pas de mémoire serveur)
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            // Renvoie une erreur 401 propre au lieu d'une page HTML
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Erreur : Non autorisé");
+                        })
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-
-    // Cette méthode définit QUI a le droit d'appeler le backend
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        // Autoriser ton Frontend React (localhost:5173)
-        configuration.setAllowedOrigins(List.of("http://localhost:5174"));
-        // Autoriser toutes les méthodes (GET, POST, PUT, DELETE)
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Autoriser tous les en-têtes (Authorization, Content-Type...)
-        configuration.setAllowedHeaders(List.of("*"));
-        // Autoriser les cookies/auth headers
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
     }
 }

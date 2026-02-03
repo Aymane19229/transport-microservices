@@ -8,16 +8,22 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-
 public class TrajetService {
     @Autowired
     private TrajetRepository trajetRepository;
-    //ajouter un trajet
+
+    // Ajouter un trajet
     public TrajetEntity ajouterTrajet(TrajetEntity trajet){
         return trajetRepository.save(trajet);
     }
-    //voir liste des trajets
+
+    // Voir liste des trajets
     public List<TrajetEntity> getAllTrajet(){
         return trajetRepository.findAll();
+    }
+
+    // 👇 AJOUTÉ : Supprimer un trajet
+    public void deleteTrajet(Long id) {
+        trajetRepository.deleteById(id);
     }
 }

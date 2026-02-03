@@ -13,19 +13,36 @@ public class VoyageService {
     private VoyageRepository voyageRepository;
 
     public VoyageEntity planifierVoyage(VoyageEntity voyage) {
+        if (voyage.getPlacesDisponibles() == 0) voyage.setPlacesDisponibles(50);
         return voyageRepository.save(voyage);
     }
 
-    public List<VoyageEntity> chercherVoyages(String depart, String arrivee) {
-        return voyageRepository.findByTrajetVilleDepartAndTrajetVilleArrivee(depart, arrivee);
-    }
+    public List<VoyageEntity> getAllVoyages() { return voyageRepository.findAll(); }
 
-    public List<VoyageEntity> getAllVoyages() {
-        return voyageRepository.findAll();
-    }
-    // Dans VoyageService.java
     public VoyageEntity getVoyageById(Long id) {
         return voyageRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Voyage introuvable avec l'ID : " + id));
+                .orElseThrow(() -> new RuntimeException("Voyage introuvable : " + id));
+    }
+
+    public void deleteVoyage(Long id) { voyageRepository.deleteById(id); }
+
+    // --- GESTION DES PLACES ---
+
+    // 1. Réserver (-1 place)
+    public void decrementerPlaces(Long voyageId) {
+        VoyageEntity voyage = getVoyageById(voyageId);
+        if (voyage.getPlacesDisponibles() > 0) {
+            voyage.setPlacesDisponibles(voyage.getPlacesDisponibles() - 1);
+            voyageRepository.save(voyage);
+        } else {
+            throw new RuntimeException("Complet !");
+        }
+    }
+
+    // 2. Annuler (+1 place) - 👇 C'EST LE NOUVEAU CODE
+    public void incrementerPlaces(Long voyageId) {
+        VoyageEntity voyage = getVoyageById(voyageId);
+        voyage.setPlacesDisponibles(voyage.getPlacesDisponibles() + 1);
+        voyageRepository.save(voyage);
     }
 }

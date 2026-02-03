@@ -1,60 +1,51 @@
 package com.transport.booking_service.service;
 
-import com.transport.booking_service.client.CatalogClient;
-import com.transport.booking_service.dto.VoyageDTO;
-import com.transport.booking_service.entity.ReservationEntity;
-import com.transport.booking_service.repository.ReservationRepository;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.transport.booking_service.entity.BookingEntity;
+import com.transport.booking_service.repository.BookingRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class BookingService {
 
-    private final ReservationRepository reservationRepository;
-    private final CatalogClient catalogClient;
-    private final RabbitTemplate rabbitTemplate;
+    @Autowired private BookingRepository bookingRepository;
+    @Autowired private RestTemplate restTemplate;
 
-    public BookingService(ReservationRepository reservationRepository, CatalogClient catalogClient, RabbitTemplate rabbitTemplate) {
-        this.reservationRepository = reservationRepository;
-        this.catalogClient = catalogClient;
-        this.rabbitTemplate = rabbitTemplate;
+    private final String CATALOG_URL = "http://localhost:8080/api/voyages/";
+
+    public BookingEntity createBooking(Long passengerId, Long voyageId) {
+        // 1. Tenter de réserver la place (Catalog)
+        try {
+            restTemplate.put(CATALOG_URL + voyageId + "/reserver", null);
+        } catch (Exception e) {
+            throw new RuntimeException("Voyage complet ou erreur technique.");
+        }
+        // 2. Créer le ticket
+        BookingEntity booking = new BookingEntity();
+        booking.setPassengerId(passengerId);
+        booking.setVoyageId(voyageId);
+        return bookingRepository.save(booking);
     }
 
-    // Méthode 1 : Créer une réservation (Existante)
-    public ReservationEntity reserverVoyage(Long passengerId, Long voyageId) {
-        // 1. Vérification auprès du Catalog-Service
-        VoyageDTO voyage = catalogClient.getVoyageById(voyageId);
+    // 👇 ANNULATION DU TICKET
+    public void cancelBooking(Long id) {
+        BookingEntity booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ticket introuvable"));
 
-        if (voyage == null) {
-            throw new RuntimeException("Erreur : Le voyage " + voyageId + " n'existe pas !");
+        if (!"ANNULE".equals(booking.getStatut())) {
+            // 1. Changer le statut localement
+            booking.setStatut("ANNULE");
+            bookingRepository.save(booking);
+
+            // 2. Libérer la place dans Catalog-Service via Gateway (Port 8080)
+            restTemplate.put(CATALOG_URL + booking.getVoyageId() + "/liberer", null);
         }
-        if (voyage.getPlacesDisponibles() <= 0) {
-            throw new RuntimeException("Erreur : Le voyage est complet !");
-        }
-
-        // 2. Création de la réservation
-        ReservationEntity reservation = new ReservationEntity();
-        reservation.setPassengerId(passengerId);
-        reservation.setVoyageId(voyageId);
-        reservation.setDateReservation(LocalDateTime.now());
-        reservation.setStatut("CONFIRME");
-
-        ReservationEntity savedReservation = reservationRepository.save(reservation);
-
-        // 3. Notification RabbitMQ
-        String message = "Confirmation : Réservation #" + savedReservation.getId() + " validée pour le Passager " + passengerId;
-        rabbitTemplate.convertAndSend("notification_queue", message);
-
-        System.out.println("📤 Notification envoyée à RabbitMQ !");
-
-        return savedReservation;
     }
 
-    // Méthode 2 : Lire une réservation (NOUVELLE ✅)
-    public ReservationEntity getReservationById(Long id) {
-        return reservationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Réservation introuvable avec l'ID : " + id));
+    public List<BookingEntity> getByPassenger(Long id) {
+        return bookingRepository.findByPassengerId(id);
     }
 }

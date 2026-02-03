@@ -4,20 +4,17 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "reservation")
-public class ReservationEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+@Table(name = "booking")
+public class BookingEntity {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private Long passengerId;
     private Long voyageId;
-    private LocalDateTime dateReservation;
-    private String statut;
+    private LocalDateTime dateReservation = LocalDateTime.now();
 
-    // Constructeurs
-    public ReservationEntity() {}
+    // 👇 Champ Statut Ajouté
+    private String statut = "CONFIRME";
 
     // Getters & Setters
     public Long getId() { return id; }
@@ -27,7 +24,6 @@ public class ReservationEntity {
     public Long getVoyageId() { return voyageId; }
     public void setVoyageId(Long voyageId) { this.voyageId = voyageId; }
     public LocalDateTime getDateReservation() { return dateReservation; }
-    public void setDateReservation(LocalDateTime dateReservation) { this.dateReservation = dateReservation; }
     public String getStatut() { return statut; }
     public void setStatut(String statut) { this.statut = statut; }
 }

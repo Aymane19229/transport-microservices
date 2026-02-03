@@ -15,7 +15,7 @@ public class VoyageEntity {
     private int prix;
     private int placesDisponibles;
 
-    // --- RELATIONS (CORRECTION CRITIQUE) ---
+    // --- RELATIONS IMPORTANTES ---
 
     @ManyToOne
     @JoinColumn(name = "bus_id")
@@ -25,11 +25,11 @@ public class VoyageEntity {
     @JoinColumn(name = "trajet_id")
     private TrajetEntity trajet;
 
-    // Constructeur vide
+    // Constructeur vide (Obligatoire pour JPA)
     public VoyageEntity() {
     }
 
-    // Constructeur complet (Utilisé par le DataLoader)
+    // Constructeur complet
     public VoyageEntity(int placesDisponibles, int prix, LocalDateTime dateDepart, BusEntity bus, TrajetEntity trajet) {
         this.placesDisponibles = placesDisponibles;
         this.prix = prix;
